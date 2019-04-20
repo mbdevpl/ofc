@@ -1,5 +1,4 @@
-# We run on the container-based infrastructure, sudo is not allowed.
-sudo: false
+sudo: required
 language: c
 
 git:
@@ -7,24 +6,59 @@ git:
     # commits that are in the queue when you push a new commit.
     depth: 3
 
-# whitelist
-branches:
-    only:
-        - master
-
 addons:
     apt:
         sources:
             - ubuntu-toolchain-r-test
         packages:
-            - gcc-4.8
             - valgrind
-            - gfortran
             - realpath
 
-# Travis CI C builder will export the CC env variable to point to gcc-4.8.
-compiler:
-    - gcc-4.8
+matrix:
+  include:
+    - env: GCC_VERSION=default
+    - env: GCC_VERSION=4.8
+    - env: GCC_VERSION=4.9
+    - env: GCC_VERSION=5
+    - env: GCC_VERSION=6
+    - dist: xenial
+      env: GCC_VERSION=default
+    - dist: xenial
+      env: GCC_VERSION=5
+    - dist: xenial
+      env: GCC_VERSION=6
+    - dist: xenial
+      env: GCC_VERSION=7
+    - dist: xenial
+      env: GCC_VERSION=8
+
+install:
+    #- if [[ "${GCC_VERSION}" != "default" ]]; then sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test && sudo apt-get update; fi
+    - if [[ "${GCC_VERSION}" == "default" ]]; then export GCC_SUFFIX=""; else export GCC_SUFFIX="-${GCC_VERSION}"; fi
+    - sudo apt-get install -y gcc${GCC_SUFFIX} gfortran${GCC_SUFFIX}
+    - >
+      sudo update-alternatives \
+        --install /usr/local/bin/gcc gcc /usr/bin/gcc${GCC_SUFFIX} 100 \
+        --slave /usr/local/bin/g++ g++ /usr/bin/g++${GCC_SUFFIX} \
+        --slave /usr/local/bin/cpp gcc-cpp /usr/bin/cpp${GCC_SUFFIX} \
+        --slave /usr/local/bin/gfortran gfortran /usr/bin/gfortran${GCC_SUFFIX} \
+        --slave /usr/local/bin/gcc-ar gcc-ar /usr/bin/gcc-ar${GCC_SUFFIX} \
+        --slave /usr/local/bin/gcc-nm gcc-nm /usr/bin/gcc-nm${GCC_SUFFIX} \
+        --slave /usr/local/bin/gcc-ranlib gcc-ranlib /usr/bin/gcc-ranlib${GCC_SUFFIX} \
+        --slave /usr/local/bin/gcov gcov /usr/bin/gcov${GCC_SUFFIX} \
+        --slave /usr/local/bin/gcov-dump gcov-dump /usr/bin/gcov-dump${GCC_SUFFIX}
+    - export CC=gcc${GCC_SUFFIX} CXX=g++${GCC_SUFFIX} FC=gfortran${GCC_SUFFIX}
+
+before_script:
+    - gcc${GCC_SUFFIX} --version
+    #- g++${GCC_SUFFIX} --version
+    - gfortran${GCC_SUFFIX} --version
+    - gcc --version
+    #- g++ --version
+    - gfortran --version
 
 script:
     - make -j 2 test
+
+notifications:
+    email: false
